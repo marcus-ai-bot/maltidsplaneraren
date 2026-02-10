@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-})
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  : null
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +13,13 @@ export async function POST(request: NextRequest) {
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
+    }
+
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'OpenAI API not configured' },
+        { status: 503 }
+      )
     }
 
     // Fetch the webpage

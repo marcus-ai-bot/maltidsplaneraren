@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null
 
 const WHITELIST = [
   'marcus@isaksson.cc',
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
     const magicLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=dummy-token-${Date.now()}`
 
     // Send email via Resend
-    if (process.env.RESEND_API_KEY) {
+    if (resend) {
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'noreply@maltidsplaneraren.app',
         to: normalizedEmail,
