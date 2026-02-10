@@ -6,6 +6,31 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Helper types
+export interface Chef {
+  id: string
+  name: string
+  slug: string
+  bio: string | null
+  image_url: string | null
+  avatar_url: string | null
+  website_url: string | null
+  specialty: string | null
+  is_verified: boolean
+  recipe_count?: number
+  created_at: string
+}
+
+// Base recipe from DB
+export type RecipeRow = Database['public']['Tables']['recipes']['Row']
+
+// Extended recipe with optional chef join
+export interface Recipe extends RecipeRow {
+  chef_id?: string | null
+  chef_name?: string | null
+  chef_avatar_url?: string | null
+}
+
 export interface Database {
   public: {
     Tables: {
