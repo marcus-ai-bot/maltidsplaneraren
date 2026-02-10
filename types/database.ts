@@ -92,6 +92,8 @@ export interface Database {
           title: string
           description: string | null
           image_url: string | null
+          original_image_url: string | null
+          thumbnail_url: string | null
           source_url: string | null
           source_name: string | null
           category: string | null
@@ -113,6 +115,8 @@ export interface Database {
           title: string
           description?: string | null
           image_url?: string | null
+          original_image_url?: string | null
+          thumbnail_url?: string | null
           source_url?: string | null
           source_name?: string | null
           category?: string | null
@@ -134,6 +138,8 @@ export interface Database {
           title?: string
           description?: string | null
           image_url?: string | null
+          original_image_url?: string | null
+          thumbnail_url?: string | null
           source_url?: string | null
           source_name?: string | null
           category?: string | null
