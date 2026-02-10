@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Simple GET for health check
+export async function GET() {
+  return NextResponse.json({ status: 'ok', route: 'recipes/extract' })
+}
+
 export async function POST(request: NextRequest) {
+  console.log('[EXTRACT] Route handler started')
   try {
-    const { url } = await request.json()
+    const body = await request.json()
+    console.log('[EXTRACT] Body parsed:', JSON.stringify(body).slice(0, 100))
+    const { url } = body
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json({ error: 'URL krävs' }, { status: 400 })
