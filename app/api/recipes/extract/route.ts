@@ -127,7 +127,7 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
           'X-Title': 'Måltidsplaneraren',
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.2-3b-instruct:free',  // Gratis modell!
+          model: 'anthropic/claude-3-haiku',  // ~$0.001/recept
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
