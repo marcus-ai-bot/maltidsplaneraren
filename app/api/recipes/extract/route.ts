@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-const openai = process.env.OPENAI_API_KEY
+// Use OpenRouter as proxy to access GPT-4 and other models
+const openai = process.env.OPENROUTER_API_KEY
   ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://maltidsplaneraren.vercel.app',
+        'X-Title': 'Måltidsplaneraren',
+      },
     })
-  : null
+  : process.env.OPENAI_API_KEY
+    ? new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      })
+    : null
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,9 +36,13 @@ export async function POST(request: NextRequest) {
     const response = await fetch(url)
     const html = await response.text()
 
-    // Extract recipe using OpenAI
+    // Extract recipe using OpenAI (via OpenRouter or direct)
+    const model = process.env.OPENROUTER_API_KEY 
+      ? 'openai/gpt-4-turbo' 
+      : 'gpt-4-turbo-preview'
+    
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model,
       messages: [
         {
           role: 'system',
