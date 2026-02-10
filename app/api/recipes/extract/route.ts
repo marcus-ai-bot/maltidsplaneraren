@@ -10,12 +10,35 @@ export async function POST(request: NextRequest) {
   
   // Quick early return for debugging
   const testMode = request.headers.get('x-test-mode')
-  if (testMode === 'echo') {
+  if (testMode) {
     try {
       const body = await request.json()
-      return NextResponse.json({ echo: body, status: 'handler reached' })
+      const { url } = body
+      
+      if (testMode === 'echo') {
+        return NextResponse.json({ echo: body, status: 'handler reached' })
+      }
+      
+      if (testMode === 'keys') {
+        return NextResponse.json({ 
+          hasOpenRouter: !!process.env.OPENROUTER_API_KEY,
+          hasAnthropic: !!process.env.ANTHROPIC_API_KEY,
+          url 
+        })
+      }
+      
+      if (testMode === 'fetch') {
+        const resp = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Test/1.0)' }
+        })
+        return NextResponse.json({ 
+          fetchOk: resp.ok, 
+          status: resp.status,
+          contentType: resp.headers.get('content-type')?.slice(0, 50)
+        })
+      }
     } catch (e) {
-      return NextResponse.json({ error: 'json parse failed', details: String(e) })
+      return NextResponse.json({ error: 'test failed', details: String(e) })
     }
   }
   
