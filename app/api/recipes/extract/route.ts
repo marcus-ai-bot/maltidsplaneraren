@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@/lib/supabase/client'
 
 // Support both direct Anthropic and OpenRouter (routing to Claude)
 const getClient = () => {
@@ -116,15 +117,40 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
 
     const recipeData = JSON.parse(jsonStr)
 
-    const recipe = {
-      id: `recipe-${Date.now()}`,
-      source_url: url,
-      source_name: new URL(url).hostname.replace('www.', ''),
-      ...recipeData,
-      created_at: new Date().toISOString(),
+    // Save to Supabase
+    const supabase = createClient()
+    const { data: savedRecipe, error: dbError } = await supabase
+      .from('recipes')
+      .insert({
+        title: recipeData.title,
+        description: recipeData.description,
+        image_url: recipeData.image_url,
+        source_url: url,
+        source_name: new URL(url).hostname.replace('www.', ''),
+        category: recipeData.category,
+        tags: recipeData.tags || [],
+        difficulty: recipeData.difficulty || 'medel',
+        prep_time_minutes: recipeData.prep_time_minutes,
+        cook_time_minutes: recipeData.cook_time_minutes,
+        servings: recipeData.servings || 4,
+        ingredients: recipeData.ingredients || [],
+        steps: recipeData.steps || [],
+        suitable_for_lunch_box: recipeData.suitable_for_lunch_box || false,
+        is_light_meal: recipeData.is_light_meal || false,
+        is_fancy: false, // Default value
+      })
+      .select()
+      .single()
+
+    if (dbError) {
+      console.error('Database error:', dbError)
+      return NextResponse.json(
+        { error: `Kunde inte spara recept: ${dbError.message}` },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json(recipe)
+    return NextResponse.json(savedRecipe)
   } catch (error) {
     console.error('Recipe extraction error:', error)
     return NextResponse.json(
