@@ -175,15 +175,53 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
       )
     }
 
-    const recipe = {
-      id: `recipe-${Date.now()}`,
-      source_url: url,
-      source_name: new URL(url).hostname.replace('www.', ''),
-      ...recipeData,
-      created_at: new Date().toISOString(),
+    // Save to Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { error: 'Supabase not configured' },
+        { status: 503 }
+      )
     }
 
-    return NextResponse.json(recipe)
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const recipeToSave = {
+      title: recipeData.title,
+      description: recipeData.description,
+      image_url: recipeData.image_url,
+      source_url: url,
+      source_name: new URL(url).hostname.replace('www.', ''),
+      category: recipeData.category,
+      tags: recipeData.tags || [],
+      difficulty: recipeData.difficulty,
+      prep_time_minutes: recipeData.prep_time_minutes,
+      cook_time_minutes: recipeData.cook_time_minutes,
+      servings: recipeData.servings,
+      ingredients: recipeData.ingredients || [],
+      steps: recipeData.steps || [],
+      suitable_for_lunch_box: recipeData.suitable_for_lunch_box || false,
+      is_light_meal: recipeData.is_light_meal || false,
+    }
+
+    const { data: savedRecipe, error: saveError } = await supabase
+      .from('recipes')
+      .insert(recipeToSave)
+      .select()
+      .single()
+
+    if (saveError) {
+      console.error('Supabase save error:', saveError)
+      return NextResponse.json(
+        { error: `Kunde inte spara recept: ${saveError.message}` },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(savedRecipe)
   } catch (error) {
     console.error('Recipe extraction error:', error)
     return NextResponse.json(
