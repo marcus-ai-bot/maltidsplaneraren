@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/client'
-import OpenAI from 'openai'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +7,17 @@ export async function POST(request: NextRequest) {
 
     if (!householdId || !startDate) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Check for API keys at runtime
+    const openRouterKey = process.env.OPENROUTER_API_KEY
+    const anthropicKey = process.env.ANTHROPIC_API_KEY
+    
+    if (!openRouterKey && !anthropicKey) {
+      return NextResponse.json(
+        { error: 'Ingen AI-nyckel konfigurerad' },
+        { status: 503 }
+      )
     }
 
     const supabase = createClient()
@@ -41,12 +47,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: recipesError.message }, { status: 500 })
     }
 
-    // Get recent ratings to avoid repetition
-    const { data: recentRatings } = await supabase
-      .from('recipe_ratings')
-      .select('recipe_id, rating')
-      .gte('created_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
-
     // Build AI prompt
     const prompt = `Du är en AI-kock som planerar middagar för en vecka.
 
@@ -59,7 +59,7 @@ ${dayPlans
   .join('\n')}
 
 TILLGÄNGLIGA RECEPT:
-${recipes?.slice(0, 20).map((r) => `- ${r.title} (${r.prep_time_minutes || '?'} min, ${r.difficulty || 'medel'})`).join('\n')}
+${recipes?.slice(0, 20).map((r) => `- ${r.title} (${r.prep_time_minutes || '?'} min, ${r.difficulty || 'medel'}) [id: ${r.id}]`).join('\n')}
 
 REGLER:
 - Båda hemma + tidigt = Marcus lagar (enkelt recept <30 min)
@@ -73,16 +73,53 @@ Generera 7 middagsförslag (måndag-söndag) med:
 1. recipe_id (hitta från listan ovan)
 2. reason (kort förklaring varför detta recept passar dagen)
 
-Svara ENDAST med JSON:
-[{"date": "2026-02-10", "recipe_id": "uuid", "reason": "text"}]`
+Svara ENDAST med JSON array, ingen markdown:
+[{"date": "2026-02-10", "recipe_id": "uuid-från-listan", "reason": "text"}]`
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    })
+    let responseText: string
 
-    const suggestions = JSON.parse(completion.choices[0].message.content || '[]')
+    if (anthropicKey) {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk')
+      const anthropic = new Anthropic({ apiKey: anthropicKey })
+      
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }],
+      })
+      
+      const content = message.content[0]
+      if (content.type !== 'text') {
+        return NextResponse.json({ error: 'Oväntat svar från AI' }, { status: 500 })
+      }
+      responseText = content.text.trim()
+    } else {
+      const orResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://maltidsplaneraren.vercel.app',
+          'X-Title': 'Måltidsplaneraren',
+        },
+        body: JSON.stringify({
+          model: 'anthropic/claude-sonnet-4',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2048,
+        }),
+      })
+      const orData = await orResponse.json()
+      responseText = orData.choices?.[0]?.message?.content?.trim() || ''
+    }
+
+    // Parse JSON (handle potential markdown wrapping)
+    let jsonStr = responseText
+    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7)
+    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3)
+    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3)
+    jsonStr = jsonStr.trim()
+
+    const suggestions = JSON.parse(jsonStr)
 
     // Save suggestions to database
     const { data: savedSuggestions, error: saveError } = await supabase
