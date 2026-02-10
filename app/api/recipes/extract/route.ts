@@ -1,96 +1,91 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
-
-// Priority: Groq (free & fast) > OpenRouter > OpenAI
-const getClient = () => {
-  if (process.env.GROQ_API_KEY) {
-    return {
-      client: new OpenAI({
-        apiKey: process.env.GROQ_API_KEY,
-        baseURL: 'https://api.groq.com/openai/v1',
-      }),
-      model: 'llama-3.1-70b-versatile', // Free & fast!
-    }
-  }
-  if (process.env.OPENROUTER_API_KEY) {
-    return {
-      client: new OpenAI({
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseURL: 'https://openrouter.ai/api/v1',
-        defaultHeaders: {
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://maltidsplaneraren.vercel.app',
-          'X-Title': 'Måltidsplaneraren',
-        },
-      }),
-      model: 'openai/gpt-4-turbo',
-    }
-  }
-  if (process.env.OPENAI_API_KEY) {
-    return {
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-      model: 'gpt-4-turbo-preview',
-    }
-  }
-  return null
-}
-
-const config = getClient()
-const openai = config?.client || null
+import Anthropic from '@anthropic-ai/sdk'
 
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json()
 
     if (!url || typeof url !== 'string') {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
+      return NextResponse.json({ error: 'URL krävs' }, { status: 400 })
     }
 
-    if (!openai) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
-        { error: 'OpenAI API not configured' },
+        { error: 'ANTHROPIC_API_KEY saknas' },
         { status: 503 }
       )
     }
 
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+
     // Fetch the webpage
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Maltidsplaneraren/1.0)',
+      },
+    })
+    
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: `Kunde inte hämta sidan: ${response.status}` },
+        { status: 400 }
+      )
+    }
+    
     const html = await response.text()
 
-    // Extract recipe using LLM (Groq > OpenRouter > OpenAI)
-    const completion = await openai.chat.completions.create({
-      model: config?.model || 'llama-3.1-70b-versatile',
+    // Extract recipe using Claude
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
       messages: [
         {
-          role: 'system',
+          role: 'user',
           content: `Du är en expert på att extrahera receptinformation från HTML.
 Extrahera följande fält från receptet:
 - title (string)
-- description (string)
-- image_url (string, första bild)
-- category (string: "förrätt", "varmrätt", "dessert")
-- tags (array: ex ["low-carb", "vegetariskt", "snabb"])
+- description (string, kort sammanfattning)
+- image_url (string, hitta första relevanta receptbilden, ofta i og:image eller recipe-bild)
+- category (string: "förrätt", "varmrätt", "dessert", "bakverk", "dryck")
+- tags (array: ex ["low-carb", "vegetariskt", "snabb", "helg"])
 - difficulty (string: "enkel", "medel", "avancerad")
 - prep_time_minutes (number)
 - cook_time_minutes (number)
 - servings (number)
 - ingredients (array av {name, amount, unit})
-- steps (array av strängar)
+- steps (array av strängar med instruktioner)
 - suitable_for_lunch_box (boolean)
 - is_light_meal (boolean)
 
-Svara ENDAST med valid JSON utan extra text.`,
-        },
-        {
-          role: 'user',
-          content: `Extrahera recept från denna HTML:\n\n${html.slice(0, 10000)}`,
+Svara ENDAST med valid JSON utan markdown-formatering eller extra text.
+
+HTML att extrahera från:
+${html.slice(0, 15000)}`,
         },
       ],
     })
 
-    const recipeData = JSON.parse(completion.choices[0].message.content || '{}')
+    const content = message.content[0]
+    if (content.type !== 'text') {
+      return NextResponse.json({ error: 'Oväntat svar från AI' }, { status: 500 })
+    }
 
-    // TODO: Save to Supabase
-    // For now, return the extracted data with a mock ID
+    // Parse JSON (handle potential markdown wrapping)
+    let jsonStr = content.text.trim()
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.slice(7)
+    }
+    if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.slice(3)
+    }
+    if (jsonStr.endsWith('```')) {
+      jsonStr = jsonStr.slice(0, -3)
+    }
+
+    const recipeData = JSON.parse(jsonStr)
+
     const recipe = {
       id: `recipe-${Date.now()}`,
       source_url: url,
@@ -103,7 +98,7 @@ Svara ENDAST med valid JSON utan extra text.`,
   } catch (error) {
     console.error('Recipe extraction error:', error)
     return NextResponse.json(
-      { error: 'Failed to extract recipe' },
+      { error: error instanceof Error ? error.message : 'Kunde inte extrahera recept' },
       { status: 500 }
     )
   }
