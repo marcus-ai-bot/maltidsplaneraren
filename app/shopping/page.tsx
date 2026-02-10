@@ -1,215 +1,158 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 
 interface ShoppingItem {
   id: string
-  ingredient: string
-  quantity: string
+  name: string
+  amount: string
   unit: string
-  status: 'to_buy' | 'have_at_home' | 'bought'
-  source_recipe: string
+  category: string
+  checked: boolean
+  recipeTitle: string
 }
 
-const mockItems: ShoppingItem[] = [
-  {
-    id: '1',
-    ingredient: 'Spaghetti',
-    quantity: '400',
-    unit: 'g',
-    status: 'to_buy',
-    source_recipe: 'Pasta carbonara',
-  },
-  {
-    id: '2',
-    ingredient: 'Bacon',
-    quantity: '200',
-    unit: 'g',
-    status: 'to_buy',
-    source_recipe: 'Pasta carbonara',
-  },
-  {
-    id: '3',
-    ingredient: 'Ägg',
-    quantity: '4',
-    unit: 'st',
-    status: 'have_at_home',
-    source_recipe: 'Pasta carbonara',
-  },
-  {
-    id: '4',
-    ingredient: 'Parmesanost',
-    quantity: '100',
-    unit: 'g',
-    status: 'to_buy',
-    source_recipe: 'Pasta carbonara',
-  },
-  {
-    id: '5',
-    ingredient: 'Laxfilé',
-    quantity: '600',
-    unit: 'g',
-    status: 'to_buy',
-    source_recipe: 'Grillad lax',
-  },
-  {
-    id: '6',
-    ingredient: 'Broccoli',
-    quantity: '1',
-    unit: 'st',
-    status: 'to_buy',
-    source_recipe: 'Grillad lax',
-  },
+const CATEGORIES = [
+  { key: 'meat', label: 'Kött & Fisk', emoji: '🥩' },
+  { key: 'dairy', label: 'Mejeri', emoji: '🥛' },
+  { key: 'vegetables', label: 'Grönsaker', emoji: '🥬' },
+  { key: 'pantry', label: 'Skafferi', emoji: '🏺' },
+  { key: 'other', label: 'Övrigt', emoji: '🛒' },
 ]
 
-type FilterType = 'all' | 'to_buy' | 'have_at_home' | 'bought'
-
 export default function ShoppingPage() {
-  const [items, setItems] = useState(mockItems)
-  const [filter, setFilter] = useState<FilterType>('all')
+  const [items, setItems] = useState<ShoppingItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredItems =
-    filter === 'all' ? items : items.filter((item) => item.status === filter)
+  useEffect(() => {
+    loadShoppingList()
+  }, [])
 
-  const toggleStatus = (id: string) => {
+  const loadShoppingList = async () => {
+    // TODO: Generate from week's recipes
+    // Mock data for now
+    const mockItems: ShoppingItem[] = [
+      { id: '1', name: 'Kycklingfilé', amount: '400', unit: 'g', category: 'meat', checked: false, recipeTitle: 'Kycklingwok' },
+      { id: '2', name: 'Laxfilé', amount: '300', unit: 'g', category: 'meat', checked: false, recipeTitle: 'Lördagsmiddag' },
+      { id: '3', name: 'Grädde', amount: '2', unit: 'dl', category: 'dairy', checked: false, recipeTitle: 'Pasta Carbonara' },
+      { id: '4', name: 'Parmesan', amount: '100', unit: 'g', category: 'dairy', checked: true, recipeTitle: 'Pasta Carbonara' },
+      { id: '5', name: 'Broccoli', amount: '1', unit: 'st', category: 'vegetables', checked: false, recipeTitle: 'Kycklingwok' },
+      { id: '6', name: 'Paprika röd', amount: '2', unit: 'st', category: 'vegetables', checked: false, recipeTitle: 'Kycklingwok' },
+    ]
+    setItems(mockItems)
+    setLoading(false)
+  }
+
+  const toggleItem = (id: string) => {
     setItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const nextStatus =
-            item.status === 'to_buy'
-              ? 'bought'
-              : item.status === 'bought'
-              ? 'have_at_home'
-              : 'to_buy'
-          return { ...item, status: nextStatus }
-        }
-        return item
-      })
+      prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item))
     )
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'to_buy':
-        return '○'
-      case 'bought':
-        return '✓'
-      case 'have_at_home':
-        return '🏠'
-      default:
-        return '○'
-    }
-  }
+  const groupedItems = CATEGORIES.map((category) => ({
+    ...category,
+    items: items.filter((item) => item.category === category.key),
+  })).filter((group) => group.items.length > 0)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'to_buy':
-        return 'text-neutral-400'
-      case 'bought':
-        return 'text-green-500'
-      case 'have_at_home':
-        return 'text-blue-500'
-      default:
-        return 'text-neutral-400'
-    }
-  }
-
-  const toBuyCount = items.filter((i) => i.status === 'to_buy').length
-  const boughtCount = items.filter((i) => i.status === 'bought').length
-  const haveCount = items.filter((i) => i.status === 'have_at_home').length
+  const checkedCount = items.filter((i) => i.checked).length
+  const totalCount = items.length
 
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-neutral-200 px-4 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-2xl">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold">Inköpslista</h1>
-          <button className="text-sm text-green-600 font-medium">Dela</button>
+      <header className="bg-white border-b border-neutral-200 px-4 py-4 sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <Link href="/" className="text-2xl">←</Link>
+          <div className="text-center">
+            <h1 className="text-xl font-bold">Inköpslista</h1>
+            <p className="text-sm text-neutral-600">
+              {checkedCount} / {totalCount} varor
+            </p>
+          </div>
+          <button className="text-green-600 font-medium text-sm">
+            Dela
+          </button>
         </div>
       </header>
 
-      {/* Filter tabs */}
-      <div className="sticky top-[72px] z-10 bg-white border-b border-neutral-200 px-4 py-3">
-        <div className="max-w-3xl mx-auto flex gap-2 overflow-x-auto">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition ${
-              filter === 'all'
-                ? 'bg-green-500 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
-          >
-            Alla ({items.length})
-          </button>
-          <button
-            onClick={() => setFilter('to_buy')}
-            className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition ${
-              filter === 'to_buy'
-                ? 'bg-amber-500 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
-          >
-            Ska köpas ({toBuyCount})
-          </button>
-          <button
-            onClick={() => setFilter('bought')}
-            className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition ${
-              filter === 'bought'
-                ? 'bg-green-500 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
-          >
-            Köpt ({boughtCount})
-          </button>
-          <button
-            onClick={() => setFilter('have_at_home')}
-            className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition ${
-              filter === 'have_at_home'
-                ? 'bg-blue-500 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
-          >
-            Har hemma ({haveCount})
-          </button>
+      {/* Progress Bar */}
+      <div className="bg-white border-b border-neutral-200 px-4 py-2">
+        <div className="max-w-2xl mx-auto">
+          <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-green-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${(checkedCount / totalCount) * 100}%` }}
+              transition={{ type: 'spring', damping: 15 }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Main content */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-neutral-500">Inga varor i denna kategori</p>
+      {/* Shopping List */}
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
+                <div className="h-4 bg-neutral-200 rounded mb-2" />
+                <div className="h-3 bg-neutral-200 rounded w-2/3" />
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-            {filteredItems.map((item, idx) => (
-              <div
-                key={item.id}
-                className={`flex items-center gap-4 p-4 ${
-                  idx !== filteredItems.length - 1 ? 'border-b border-neutral-100' : ''
-                }`}
-              >
-                <button
-                  onClick={() => toggleStatus(item.id)}
-                  className={`text-2xl ${getStatusColor(item.status)} transition`}
-                >
-                  {getStatusIcon(item.status)}
-                </button>
-                <div className="flex-1">
-                  <div
-                    className={`font-semibold ${
-                      item.status === 'bought' ? 'line-through text-neutral-400' : ''
-                    }`}
-                  >
-                    {item.ingredient}
-                  </div>
-                  <div className="text-sm text-neutral-500">
-                    {item.quantity} {item.unit} • {item.source_recipe}
-                  </div>
+          <div className="space-y-6">
+            {groupedItems.map((group) => (
+              <div key={group.key} className="bg-white rounded-xl overflow-hidden shadow-md">
+                <div className="bg-neutral-100 px-4 py-3 font-bold flex items-center gap-2">
+                  <span className="text-2xl">{group.emoji}</span>
+                  <span>{group.label}</span>
+                  <span className="ml-auto text-sm text-neutral-600">
+                    {group.items.filter((i) => i.checked).length} / {group.items.length}
+                  </span>
+                </div>
+                <div className="divide-y divide-neutral-100">
+                  {group.items.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 transition"
+                      onClick={() => toggleItem(item.id)}
+                      animate={{ opacity: item.checked ? 0.5 : 1 }}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
+                          item.checked
+                            ? 'bg-green-500 border-green-500'
+                            : 'border-neutral-300'
+                        }`}
+                      >
+                        {item.checked && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', damping: 10 }}
+                          >
+                            ✓
+                          </motion.div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className={`font-semibold ${item.checked ? 'line-through' : ''}`}>
+                          {item.name}
+                        </div>
+                        <div className="text-sm text-neutral-600">
+                          {item.amount} {item.unit} · {item.recipeTitle}
+                        </div>
+                      </div>
+                      {item.checked && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                          Har hemma
+                        </span>
+                      )}
+                    </motion.div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -217,20 +160,16 @@ export default function ShoppingPage() {
         )}
 
         {/* Actions */}
-        <div className="mt-6 flex gap-3">
-          <button className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-semibold py-3 rounded-full transition">
-            Töm köpt
-          </button>
-          <button className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-full transition">
-            Generera om
-          </button>
-        </div>
-
-        {/* Info */}
-        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-          <p className="font-semibold mb-2">💡 Tips:</p>
-          <p>Tryck på en vara för att växla mellan "ska köpas", "köpt" och "har hemma".</p>
-        </div>
+        {!loading && (
+          <div className="mt-6 space-y-3">
+            <button className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-full shadow-lg transition">
+              📤 Exportera till butik-app
+            </button>
+            <button className="w-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-semibold py-3 rounded-full transition">
+              📸 Scanna kyl (kommer snart)
+            </button>
+          </div>
+        )}
       </main>
     </div>
   )

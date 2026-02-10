@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import SwipeTutorial from '@/components/SwipeTutorial'
 
 const DAYS = [
   { key: 'mon', label: 'Måndag' },
@@ -40,6 +41,7 @@ export default function PlanningPage() {
     }, {} as Record<string, DayPlan>)
   )
   const [view, setView] = useState<'swipe' | 'grid'>('swipe')
+  const [dragOffset, setDragOffset] = useState(0)
 
   const currentDay = DAYS[currentDayIndex]
   const currentPlan = plans[currentDay.key]
@@ -77,9 +79,30 @@ export default function PlanningPage() {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // TODO: Save to Supabase
-    alert('Veckoplan sparad!')
+    alert('Veckoplan sparad! Genererar AI-förslag...')
+    // Redirect to calendar to see suggestions
+    window.location.href = '/calendar'
+  }
+
+  const handleRandomWeek = () => {
+    // Randomize all days with typical patterns
+    const randomPlans = DAYS.reduce((acc, day) => {
+      const isWeekend = day.key === 'sat' || day.key === 'sun'
+      acc[day.key] = {
+        eating_status: isWeekend ? 'home' : Math.random() > 0.3 ? 'home' : 'out',
+        time_availability: Math.random() > 0.5 ? 'early' : 'late',
+      }
+      return acc
+    }, {} as Record<string, DayPlan>)
+    setPlans(randomPlans)
+    alert('Veckan slumpad! 🎲')
+  }
+
+  const handleCopyLastWeek = () => {
+    // TODO: Fetch last week's plan from Supabase
+    alert('Kopierar förra veckans planering...')
   }
 
   if (view === 'grid') {
@@ -163,6 +186,8 @@ export default function PlanningPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <SwipeTutorial />
+      
       {/* Header */}
       <header className="bg-white border-b border-neutral-200 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -176,6 +201,24 @@ export default function PlanningPage() {
           </button>
         </div>
       </header>
+
+      {/* Quick Actions */}
+      <div className="bg-white border-b border-neutral-200 px-4 py-4">
+        <div className="max-w-2xl mx-auto flex gap-3 overflow-x-auto">
+          <button
+            onClick={handleRandomWeek}
+            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-full whitespace-nowrap transition shadow-md"
+          >
+            🎲 Slumpa veckan
+          </button>
+          <button
+            onClick={handleCopyLastWeek}
+            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-full whitespace-nowrap transition shadow-md"
+          >
+            🔄 Samma som förra veckan
+          </button>
+        </div>
+      </div>
 
       {/* Progress */}
       <div className="bg-white border-b border-neutral-200 px-4 py-3">
@@ -205,7 +248,20 @@ export default function PlanningPage() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            className="bg-white rounded-2xl p-8 shadow-lg"
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.7}
+            onDrag={(_, info) => setDragOffset(info.offset.x)}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -100 && currentDayIndex < DAYS.length - 1) {
+                setCurrentDayIndex((prev) => prev + 1)
+              } else if (info.offset.x > 100 && currentDayIndex > 0) {
+                setCurrentDayIndex((prev) => prev - 1)
+              }
+              setDragOffset(0)
+            }}
+            className="bg-white rounded-2xl p-8 shadow-lg cursor-grab active:cursor-grabbing"
           >
             <h2 className="text-3xl font-bold text-center mb-8">{currentDay.label}</h2>
 

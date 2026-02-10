@@ -1,0 +1,166 @@
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import Link from 'next/link'
+import { ChefCarousel } from '@/components/ChefCarousel'
+import type { Database } from '@/types/database'
+
+export const dynamic = 'force-dynamic'
+
+export default async function HomePage() {
+  const supabase = createServerComponentClient<Database>({ cookies })
+
+  // Fetch featured chefs
+  const { data: chefs } = await supabase
+    .from('chefs')
+    .select('*')
+    .order('is_verified', { ascending: false })
+    .limit(6)
+
+  // Fetch recipe count
+  const { count: recipeCount } = await supabase
+    .from('recipes')
+    .select('*', { count: 'exact', head: true })
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#FAFAFA]">
+      {/* Hero */}
+      <header className="px-6 py-12 text-center bg-gradient-to-br from-[#2D5A27] via-[#3a7033] to-[#2D5A27] text-white relative overflow-hidden">
+        {/* Decorative Elements */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 text-8xl">🍽️</div>
+          <div className="absolute bottom-10 right-10 text-8xl">👨‍🍳</div>
+          <div className="absolute top-1/2 left-1/4 text-6xl">🥗</div>
+          <div className="absolute top-1/3 right-1/3 text-6xl">🍝</div>
+        </div>
+
+        <div className="relative z-10 max-w-2xl mx-auto">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Måltidsplaneraren
+          </h1>
+          <p className="text-xl opacity-90 mb-2">
+            Din personliga kokbok med världens bästa kockar
+          </p>
+          <p className="text-lg opacity-75">
+            AI-driven måltidsplanering för par. Smart, enkel, och skitgod mat.
+          </p>
+
+          {recipeCount && recipeCount > 0 && (
+            <p className="mt-6 text-sm opacity-80">
+              ✨ {recipeCount} recept och fler tillkommer varje dag
+            </p>
+          )}
+        </div>
+      </header>
+
+      {/* Featured Chefs */}
+      {chefs && chefs.length > 0 && (
+        <div className="bg-white border-b">
+          <ChefCarousel chefs={chefs} />
+        </div>
+      )}
+
+      {/* Main Navigation */}
+      <main className="flex-1 px-6 py-12 max-w-5xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Receptbank */}
+          <Link 
+            href="/recipes" 
+            className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#2D5A27]/5 to-transparent group-hover:from-[#2D5A27]/10 transition-all duration-300" />
+            <div className="relative p-8 text-center">
+              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">📖</div>
+              <h2 className="text-2xl font-bold mb-2 text-neutral-800" style={{ fontFamily: 'Playfair Display, serif' }}>
+                Receptbank
+              </h2>
+              <p className="text-neutral-600">
+                Bläddra bland hundratals fantastiska recept
+              </p>
+              {recipeCount && recipeCount > 0 && (
+                <p className="mt-3 text-sm text-[#2D5A27] font-semibold">
+                  {recipeCount} recept tillgängliga →
+                </p>
+              )}
+            </div>
+          </Link>
+
+          {/* Veckoplannering */}
+          <Link 
+            href="/planning" 
+            className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#E85D04]/5 to-transparent group-hover:from-[#E85D04]/10 transition-all duration-300" />
+            <div className="relative p-8 text-center">
+              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">📅</div>
+              <h2 className="text-2xl font-bold mb-2 text-neutral-800" style={{ fontFamily: 'Playfair Display, serif' }}>
+                Veckoplannering
+              </h2>
+              <p className="text-neutral-600">
+                Swipea dig till perfekt vecka
+              </p>
+              <p className="mt-3 text-sm text-[#E85D04] font-semibold">
+                Kommer snart 🚀
+              </p>
+            </div>
+          </Link>
+
+          {/* Middagsförslag */}
+          <Link 
+            href="/suggestions" 
+            className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent group-hover:from-purple-500/10 transition-all duration-300" />
+            <div className="relative p-8 text-center">
+              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🤖</div>
+              <h2 className="text-2xl font-bold mb-2 text-neutral-800" style={{ fontFamily: 'Playfair Display, serif' }}>
+                Smart förslag
+              </h2>
+              <p className="text-neutral-600">
+                AI föreslår middagar baserat på er vardag
+              </p>
+              <p className="mt-3 text-sm text-purple-600 font-semibold">
+                AI-driven planering →
+              </p>
+            </div>
+          </Link>
+
+          {/* Inköpslista */}
+          <Link 
+            href="/shopping" 
+            className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent group-hover:from-blue-500/10 transition-all duration-300" />
+            <div className="relative p-8 text-center">
+              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🛒</div>
+              <h2 className="text-2xl font-bold mb-2 text-neutral-800" style={{ fontFamily: 'Playfair Display, serif' }}>
+                Inköpslista
+              </h2>
+              <p className="text-neutral-600">
+                Automatiskt från veckans recept
+              </p>
+              <p className="mt-3 text-sm text-blue-600 font-semibold">
+                Smart samordning →
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-12 text-center">
+          <Link 
+            href="/recipes" 
+            className="inline-block bg-[#2D5A27] hover:bg-[#3a7033] text-white font-semibold px-10 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            Utforska recept →
+          </Link>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="px-6 py-8 text-center text-neutral-500 text-sm border-t">
+        <p>Skapad med ❤️ av Molt för Marcus & Ingela</p>
+        <p className="mt-2 text-xs">v2.0 — Kitchen Stories-inspirerad design</p>
+      </footer>
+    </div>
+  )
+}
