@@ -7,6 +7,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   console.log('[EXTRACT] Route handler started')
+  
+  // Quick early return for debugging
+  const testMode = request.headers.get('x-test-mode')
+  if (testMode === 'echo') {
+    try {
+      const body = await request.json()
+      return NextResponse.json({ echo: body, status: 'handler reached' })
+    } catch (e) {
+      return NextResponse.json({ error: 'json parse failed', details: String(e) })
+    }
+  }
+  
   try {
     const body = await request.json()
     console.log('[EXTRACT] Body parsed:', JSON.stringify(body).slice(0, 100))
