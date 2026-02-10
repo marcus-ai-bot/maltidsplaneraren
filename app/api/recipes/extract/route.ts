@@ -127,7 +127,7 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
           'X-Title': 'Måltidsplaneraren',
         },
         body: JSON.stringify({
-          model: 'anthropic/claude-sonnet-4',
+          model: 'google/gemma-2-9b-it:free',  // Gratis modell!
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
