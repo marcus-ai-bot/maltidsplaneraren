@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { ChefCarousel } from '@/components/ChefCarousel'
-import { RecipeCard } from '@/components/RecipeCard'
-import { SearchBar } from '@/components/SearchBar'
+// import { ChefCarousel } from '@/components/ChefCarousel'
+import RecipeCard from '@/components/RecipeCard'
+// import { SearchBar } from '@/components/SearchBar'
 import type { Database } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -56,25 +56,18 @@ export default async function RecipesPage() {
       </header>
 
       {/* Chef Carousel */}
-      {chefs && chefs.length > 0 && (
-        <div className="bg-white border-b">
-          <div className="max-w-6xl mx-auto">
-            <ChefCarousel chefs={chefs} />
-          </div>
-        </div>
-      )}
+      {/* Chef carousel temporarily disabled */}
 
       {/* Search & Filters */}
       <div className="sticky top-0 z-10 bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-6 py-4">
-          <SearchBar
-            onSearch={(query) => {
-              console.log('Search:', query)
+          <input
+            type="search"
+            placeholder="Sök recept..."
+            className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:border-green-500"
+            onChange={(e) => {
+              console.log('Search:', e.target.value)
               // TODO: Implement search
-            }}
-            onFilterChange={(filters) => {
-              console.log('Filters:', filters)
-              // TODO: Implement filtering
             }}
           />
         </div>
@@ -96,10 +89,6 @@ export default async function RecipesPage() {
             <RecipeCard
               key={recipe.id}
               recipe={recipe}
-              onAddClick={(recipe) => {
-                console.log('Add to plan:', recipe.id)
-                // TODO: Implement add to weekly plan
-              }}
             />
           ))}
         </div>

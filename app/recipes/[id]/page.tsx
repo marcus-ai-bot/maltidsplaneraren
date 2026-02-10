@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { RecipeHero } from '@/components/RecipeHero'
+// import { RecipeHero } from '@/components/RecipeHero'
 import type { Database } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +52,13 @@ export default async function RecipePage({ params }: Props) {
       </Link>
 
       {/* Hero Section */}
-      <RecipeHero recipe={recipe} />
+      {/* <RecipeHero recipe={recipe} /> */}
+      <div className="bg-neutral-900 text-white py-12 px-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
+          {recipe.description && <p className="text-lg text-neutral-300">{recipe.description}</p>}
+        </div>
+      </div>
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-6 py-12">
