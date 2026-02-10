@@ -5,15 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.catarinakonig.elle.se',
-      },
-      {
-        protocol: 'https',
-        hostname: '56kilo.se',
+        hostname: '**',  // Allow all HTTPS images
       },
     ],
   },

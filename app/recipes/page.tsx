@@ -1,41 +1,35 @@
-import { createServerClient } from '@/lib/supabase/server'
+'use client'
+
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-// import { ChefCarousel } from '@/components/ChefCarousel'
 import RecipeCard from '@/components/RecipeCard'
-// import { SearchBar } from '@/components/SearchBar'
-import type { Database } from '@/types/database'
+import { useEffect, useState } from 'react'
 
-export const dynamic = 'force-dynamic'
-
-export default async function RecipesPage() {
-  let recipes: any[] = []
-  let chefs: any[] = []
+export default function RecipesPage() {
+  const [recipes, setRecipes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   
-  try {
-    const supabase = createServerClient()
-
-    // Fetch chefs for carousel
-    const { data: chefsData, error: chefsError } = await supabase
-      .from('chefs')
-      .select('*')
-      .order('is_verified', { ascending: false })
-      .order('follower_count', { ascending: false })
-      .limit(10)
-    
-    if (chefsError) console.error('Chefs error:', chefsError)
-    chefs = chefsData || []
-
-    // Fetch recipes
-    const { data: recipesData, error: recipesError } = await supabase
-      .from('recipes')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    
-    if (recipesError) console.error('Recipes error:', recipesError)
-    recipes = recipesData || []
-  } catch (error) {
-    console.error('Supabase connection error:', error)
+  useEffect(() => {
+    async function loadRecipes() {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      
+      if (error) console.error('Error loading recipes:', error)
+      setRecipes(data || [])
+      setLoading(false)
+    }
+    loadRecipes()
+  }, [])
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="text-xl text-neutral-600">Laddar recept...</div>
+      </div>
+    )
   }
 
   return (
