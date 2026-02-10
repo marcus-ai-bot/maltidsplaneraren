@@ -92,8 +92,27 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
           max_tokens: 2048,
         }),
       })
+      
       const orData = await orResponse.json()
+      
+      // Check for OpenRouter errors
+      if (!orResponse.ok || orData.error) {
+        console.error('OpenRouter error:', orData)
+        return NextResponse.json(
+          { error: orData.error?.message || `OpenRouter fel: ${orResponse.status}` },
+          { status: 502 }
+        )
+      }
+      
       jsonStr = orData.choices?.[0]?.message?.content?.trim() || ''
+      
+      if (!jsonStr) {
+        console.error('OpenRouter empty response:', orData)
+        return NextResponse.json(
+          { error: 'OpenRouter returnerade tomt svar' },
+          { status: 502 }
+        )
+      }
     }
 
     // Parse JSON (handle potential markdown wrapping)
@@ -102,7 +121,16 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
     if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3)
     jsonStr = jsonStr.trim()
 
-    const recipeData = JSON.parse(jsonStr)
+    let recipeData
+    try {
+      recipeData = JSON.parse(jsonStr)
+    } catch (parseError) {
+      console.error('JSON parse error. Response was:', jsonStr.slice(0, 500))
+      return NextResponse.json(
+        { error: 'Kunde inte tolka AI-svar som JSON', raw: jsonStr.slice(0, 200) },
+        { status: 500 }
+      )
+    }
 
     const recipe = {
       id: `recipe-${Date.now()}`,
