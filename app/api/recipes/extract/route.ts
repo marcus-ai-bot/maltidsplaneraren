@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
+// Support both direct Anthropic and OpenRouter (routing to Claude)
+const getClient = () => {
+  if (process.env.ANTHROPIC_API_KEY) {
+    return {
+      type: 'anthropic' as const,
+      client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+      model: 'claude-sonnet-4-20250514',
+    }
+  }
+  if (process.env.OPENROUTER_API_KEY) {
+    return {
+      type: 'openrouter' as const,
+      apiKey: process.env.OPENROUTER_API_KEY,
+      model: 'anthropic/claude-sonnet-4',
+    }
+  }
+  return null
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json()
@@ -9,16 +28,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL krävs' }, { status: 400 })
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const config = getClient()
+    if (!config) {
       return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY saknas' },
+        { error: 'Ingen AI-nyckel konfigurerad (ANTHROPIC_API_KEY eller OPENROUTER_API_KEY)' },
         { status: 503 }
       )
     }
-
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    })
 
     // Fetch the webpage
     const response = await fetch(url, {
@@ -36,14 +52,7 @@ export async function POST(request: NextRequest) {
     
     const html = await response.text()
 
-    // Extract recipe using Claude
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: `Du är en expert på att extrahera receptinformation från HTML.
+    const systemPrompt = `Du är en expert på att extrahera receptinformation från HTML.
 Extrahera följande fält från receptet:
 - title (string)
 - description (string, kort sammanfattning)
@@ -59,30 +68,51 @@ Extrahera följande fält från receptet:
 - suitable_for_lunch_box (boolean)
 - is_light_meal (boolean)
 
-Svara ENDAST med valid JSON utan markdown-formatering eller extra text.
+Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
 
-HTML att extrahera från:
-${html.slice(0, 15000)}`,
+    const userPrompt = `Extrahera recept från denna HTML:\n\n${html.slice(0, 15000)}`
+
+    let jsonStr: string
+
+    if (config.type === 'anthropic') {
+      const message = await config.client.messages.create({
+        model: config.model,
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }],
+      })
+      const content = message.content[0]
+      if (content.type !== 'text') {
+        return NextResponse.json({ error: 'Oväntat svar från AI' }, { status: 500 })
+      }
+      jsonStr = content.text.trim()
+    } else {
+      // OpenRouter
+      const orResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://maltidsplaneraren.vercel.app',
+          'X-Title': 'Måltidsplaneraren',
         },
-      ],
-    })
-
-    const content = message.content[0]
-    if (content.type !== 'text') {
-      return NextResponse.json({ error: 'Oväntat svar från AI' }, { status: 500 })
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: 2048,
+        }),
+      })
+      const orData = await orResponse.json()
+      jsonStr = orData.choices?.[0]?.message?.content?.trim() || ''
     }
 
     // Parse JSON (handle potential markdown wrapping)
-    let jsonStr = content.text.trim()
-    if (jsonStr.startsWith('```json')) {
-      jsonStr = jsonStr.slice(7)
-    }
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.slice(3)
-    }
-    if (jsonStr.endsWith('```')) {
-      jsonStr = jsonStr.slice(0, -3)
-    }
+    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7)
+    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3)
+    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3)
+    jsonStr = jsonStr.trim()
 
     const recipeData = JSON.parse(jsonStr)
 
