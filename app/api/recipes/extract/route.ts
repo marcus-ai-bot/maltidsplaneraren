@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizeRecipeUrl, extractDomain } from '@/lib/url-utils'
 
 // Simple GET for health check
 export async function GET() {
@@ -6,50 +7,17 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[EXTRACT] Route handler started')
-  
-  // Quick early return for debugging
-  const testMode = request.headers.get('x-test-mode')
-  if (testMode) {
-    try {
-      const body = await request.json()
-      const { url } = body
-      
-      if (testMode === 'echo') {
-        return NextResponse.json({ echo: body, status: 'handler reached' })
-      }
-      
-      if (testMode === 'keys') {
-        return NextResponse.json({ 
-          hasOpenRouter: !!process.env.OPENROUTER_API_KEY,
-          hasAnthropic: !!process.env.ANTHROPIC_API_KEY,
-          url 
-        })
-      }
-      
-      if (testMode === 'fetch') {
-        const resp = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Test/1.0)' }
-        })
-        return NextResponse.json({ 
-          fetchOk: resp.ok, 
-          status: resp.status,
-          contentType: resp.headers.get('content-type')?.slice(0, 50)
-        })
-      }
-    } catch (e) {
-      return NextResponse.json({ error: 'test failed', details: String(e) })
-    }
-  }
-  
   try {
     const body = await request.json()
-    console.log('[EXTRACT] Body parsed:', JSON.stringify(body).slice(0, 100))
-    const { url } = body
+    const { url: rawUrl } = body
 
-    if (!url || typeof url !== 'string') {
+    if (!rawUrl || typeof rawUrl !== 'string') {
       return NextResponse.json({ error: 'URL krävs' }, { status: 400 })
     }
+
+    // Normalize URL (strip tracking params, mobile prefix, etc.)
+    const url = normalizeRecipeUrl(rawUrl)
+    console.log('[EXTRACT] Normalized URL:', rawUrl, '→', url)
 
     // Check for API keys at runtime (not build time!)
     const openRouterKey = process.env.OPENROUTER_API_KEY
@@ -194,7 +162,7 @@ Svara ENDAST med valid JSON utan markdown-formatering eller extra text.`
       description: recipeData.description,
       image_url: recipeData.image_url,
       source_url: url,
-      source_name: new URL(url).hostname.replace('www.', ''),
+      source_name: extractDomain(url),
       category: recipeData.category,
       tags: recipeData.tags || [],
       difficulty: recipeData.difficulty,
