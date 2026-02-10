@@ -14,6 +14,7 @@ export default function AddRecipePage() {
   const [url, setUrl] = useState('')
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+  const [mainImageIndex, setMainImageIndex] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,6 +41,12 @@ export default function AddRecipePage() {
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index))
     setPreviews(prev => prev.filter((_, i) => i !== index))
+    // Adjust mainImageIndex if needed
+    if (index === mainImageIndex) {
+      setMainImageIndex(0)
+    } else if (index < mainImageIndex) {
+      setMainImageIndex(prev => prev - 1)
+    }
   }
 
   const handleExtractUrl = async () => {
@@ -84,6 +91,7 @@ export default function AddRecipePage() {
     try {
       const formData = new FormData()
       images.forEach(img => formData.append('images', img))
+      formData.append('mainImageIndex', mainImageIndex.toString())
 
       const response = await fetch('/api/recipes/extract-image', {
         method: 'POST',
@@ -185,23 +193,41 @@ export default function AddRecipePage() {
 
               {/* Image Previews */}
               {previews.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {previews.map((preview, i) => (
-                    <div key={i} className="relative">
-                      <img
-                        src={preview}
-                        alt={`Bild ${i + 1}`}
-                        className="w-full h-32 object-cover rounded-xl"
-                      />
-                      <button
-                        onClick={() => removeImage(i)}
-                        className="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full text-sm"
+                <>
+                  <p className="text-sm text-neutral-500 mb-2">
+                    Klicka på bilden som ska visas på receptet:
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {previews.map((preview, i) => (
+                      <div 
+                        key={i} 
+                        className={`relative cursor-pointer transition-all ${
+                          mainImageIndex === i 
+                            ? 'ring-4 ring-green-500 rounded-xl' 
+                            : 'opacity-70 hover:opacity-100'
+                        }`}
+                        onClick={() => setMainImageIndex(i)}
                       >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                        <img
+                          src={preview}
+                          alt={`Bild ${i + 1}`}
+                          className="w-full h-32 object-cover rounded-xl"
+                        />
+                        {mainImageIndex === i && (
+                          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                            📷 Huvudbild
+                          </div>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeImage(i); }}
+                          className="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full text-sm"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
               {/* Upload Button */}
