@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 // import { ChefCarousel } from '@/components/ChefCarousel'
 import RecipeCard from '@/components/RecipeCard'
@@ -8,22 +8,35 @@ import type { Database } from '@/types/database'
 export const dynamic = 'force-dynamic'
 
 export default async function RecipesPage() {
-  const supabase = createClient()
+  let recipes: any[] = []
+  let chefs: any[] = []
+  
+  try {
+    const supabase = createServerClient()
 
-  // Fetch chefs for carousel
-  const { data: chefs } = await supabase
-    .from('chefs')
-    .select('*')
-    .order('is_verified', { ascending: false })
-    .order('follower_count', { ascending: false })
-    .limit(10)
+    // Fetch chefs for carousel
+    const { data: chefsData, error: chefsError } = await supabase
+      .from('chefs')
+      .select('*')
+      .order('is_verified', { ascending: false })
+      .order('follower_count', { ascending: false })
+      .limit(10)
+    
+    if (chefsError) console.error('Chefs error:', chefsError)
+    chefs = chefsData || []
 
-  // Fetch recipes
-  const { data: recipes } = await supabase
-    .from('recipes')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50)
+    // Fetch recipes
+    const { data: recipesData, error: recipesError } = await supabase
+      .from('recipes')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    
+    if (recipesError) console.error('Recipes error:', recipesError)
+    recipes = recipesData || []
+  } catch (error) {
+    console.error('Supabase connection error:', error)
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
